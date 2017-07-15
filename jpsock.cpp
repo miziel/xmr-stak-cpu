@@ -32,8 +32,9 @@
 #include "jext.h"
 #include "socks.h"
 #include "socket.h"
+#include "version.h"
 
-#define AGENTID_STR "xmr-stak-cpu/1.0"
+#define AGENTID_STR XMR_STAK_NAME "/" XMR_STAK_VERSION
 
 using namespace rapidjson;
 
@@ -103,10 +104,14 @@ jpsock::jpsock(size_t id, bool tls) : pool_id(id)
 
 	prv = new opaque_private(bJsonCallMem, bJsonRecvMem, bJsonParseMem);
 
+#ifndef CONF_NO_TLS
 	if(tls)
 		sck = new tls_socket(this);
 	else
 		sck = new plain_socket(this);
+#else
+	sck = new plain_socket(this);
+#endif
 
 	oRecvThd = nullptr;
 	bRunning = false;

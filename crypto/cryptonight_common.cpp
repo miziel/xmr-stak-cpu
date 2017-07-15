@@ -39,6 +39,10 @@ extern "C"
 #include <malloc.h>
 #endif // __GNUC__
 
+#if defined(__APPLE__)
+#include <mach/vm_statistics.h>
+#endif
+
 #ifdef _WIN32
 #include <windows.h>
 #else
@@ -110,7 +114,8 @@ cryptonight_ctx* cryptonight_alloc_ctx(size_t use_fast_mem, size_t use_mlock, al
 
 	if(use_fast_mem == 0)
 	{
-		ptr->long_state = (uint8_t*)_mm_malloc(MEMORY, 4096);
+		// use 2MiB aligned memory
+		ptr->long_state = (uint8_t*)_mm_malloc(MEMORY, 2*1024*1024);
 		ptr->ctx_info[0] = 0;
 		ptr->ctx_info[1] = 0;
 		return ptr;
@@ -137,8 +142,17 @@ cryptonight_ctx* cryptonight_alloc_ctx(size_t use_fast_mem, size_t use_mlock, al
 		return ptr;
 	}
 #else
+
+#if defined(__APPLE__)
+	ptr->long_state  = (uint8_t*)mmap(0, MEMORY, PROT_READ | PROT_WRITE,
+		MAP_PRIVATE | MAP_ANON, VM_FLAGS_SUPERPAGE_SIZE_2MB, 0);
+#elif defined(__FreeBSD__)
+	ptr->long_state = (uint8_t*)mmap(0, MEMORY, PROT_READ | PROT_WRITE,
+		MAP_PRIVATE | MAP_ANONYMOUS | MAP_ALIGNED_SUPER | MAP_PREFAULT_READ, -1, 0);
+#else
 	ptr->long_state = (uint8_t*)mmap(0, MEMORY, PROT_READ | PROT_WRITE,
 		MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_POPULATE, 0, 0);
+#endif
 
 	if (ptr->long_state == MAP_FAILED)
 	{
@@ -178,24 +192,4 @@ void cryptonight_free_ctx(cryptonight_ctx* ctx)
 		_mm_free(ctx->long_state);
 
 	_mm_free(ctx);
-}
-
-void cryptonight_hash_ctx(const void* input, size_t len, void* output, cryptonight_ctx* ctx)
-{
-	cryptonight_hash<0x80000, MEMORY, true, false>(input, len, output, ctx);
-}
-
-void cryptonight_hash_ctx_soft(const void* input, size_t len, void* output, cryptonight_ctx* ctx)
-{
-	cryptonight_hash<0x80000, MEMORY, true, true>(input, len, output, ctx);
-}
-
-void cryptonight_hash_ctx_np(const void* input, size_t len, void* output, cryptonight_ctx* ctx)
-{
-	cryptonight_hash<0x80000, MEMORY, false, false>(input, len, output, ctx);
-}
-
-void cryptonight_double_hash_ctx(const void*  input, size_t len, void* output, cryptonight_ctx* __restrict ctx0, cryptonight_ctx* __restrict ctx1)
-{
-	cryptonight_double_hash<0x80000, MEMORY, false, false>(input, len, output, ctx0, ctx1);
 }

@@ -1,9 +1,11 @@
-### XMR-Stak-CPU - Monero mining software
+# XMR-Stak-CPU - Monero mining software
 
-XMR-Stak is a universal Stratum pool miner. This is the CPU-mining version; there is also an [AMD GPU version](https://github.com/fireice-uk/xmr-stak-amd). An NVIDIA GPU version is being planned.
+XMR-Stak is a universal Stratum pool miner. This is the CPU-mining version; there is also an [AMD GPU version](https://github.com/fireice-uk/xmr-stak-amd) and an [NVIDA GPU version](https://github.com/fireice-uk/xmr-stak-nvidia)
 
+## HTML reports
+<img src="https://gist.githubusercontent.com/fireice-uk/2da301131ac01695ff79539a27b81d68/raw/4c09cdeee86f94df2e9dd86b927e64aded6184f5/xmr-stak-cpu-hashrate.png" width="260"> <img src="https://gist.githubusercontent.com/fireice-uk/2da301131ac01695ff79539a27b81d68/raw/4c09cdeee86f94df2e9dd86b927e64aded6184f5/xmr-stak-cpu-results.png" width="260"> <img src="https://gist.githubusercontent.com/fireice-uk/2da301131ac01695ff79539a27b81d68/raw/4c09cdeee86f94df2e9dd86b927e64aded6184f5/xmr-stak-cpu-connection.png" width="260">
 
-#### Usage on Windows 
+## Usage on Windows 
 1) Edit the config.txt file to enter your pool login and password. 
 2) Double click the exe file. 
 
@@ -12,47 +14,69 @@ XMR-Stak should compile on any C++11 compliant compiler. Windows compiler is ass
 -----BEGIN PGP SIGNED MESSAGE-----
 Hash: SHA256
 
-$ sha1sum libeay32.dll  ssleay32.dll  xmr-stak-cpu.exe
+sha1sum
 d34a0ba0dd7b3b1f900a7e02772e197e974b4a73  libeay32.dll
 2ee9966a0fc163da58408d91be36b84fa287c10b  ssleay32.dll
-34df2ee0120081c89b84f0ef3a5ffe4a0bec018c  xmr-stak-cpu.exe
+a03f81d7445005e0d51e3825e67cac8413df1068  xmr-stak-cpu.exe
+98bb62cd1f3c7a11a18d6c2b1f1bd6bf4b5b41a3  xmr-stak-cpu-notls.exe
 
-$ sha3sum libeay32.dll  ssleay32.dll  xmr-stak-cpu.exe
+
+sha3sum
 05003137a87313c81d6c348c9b96411c95d48dc22c35f36c39129747  libeay32.dll
 133c065d9ef2c93396382e2ba5d8c3ca8c6a57c6beb0159cb9a4b6c5  ssleay32.dll
-3719195d9ee9fa678d84e6b0227dc7638a854d6cf7e22d4801e483f5  xmr-stak-cpu.exe
+9666ae2cfa337599282615275ea05f4e6240fd571c86530583ac89aa  xmr-stak-cpu.exe
+46f633b125907feed2f16fc97dcc8402a67218809fef226a77c0aa70  xmr-stak-cpu-notls.exe
 
-$ date
-Fri  3 Mar 22:57:54 GMT 2017
+date
+Sat 29 Apr 16:59:00 BST 2017
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQEcBAEBCAAGBQJYufUGAAoJEPsk95p+1Bw0htAH/iGlOvudkcgUPVxtkXbLRX/R
-NgTqlcV+OVNO4uL6+4naq+P+o1trw4UiVQ5WRbg2aYyQUoFi4TKoTV7MDTFZNZkX
-GYV0ijds2sygt652Me/bu6rFWki9VXFOJG8MWTetgmEIlkcUSVTwuVj9tnOrDsuq
-84Xczmooq8cYhrgiYO3H76XLIHrG04f/rfBQC9MSxr/7XoHWzVXkm2N0oIZUFoZ5
-RNAe/CntLtMj6wSHQfT8/KyNo8pRVSJtsv9CHxxGtBYFW3j4MpV7uCBiIAVvlG+6
-eM8QAsnkW6jER+6CkwzdmcJOTfsk6EV3T4iAh5LBCCTmBpMRtlZpkxlKQP6YaZ8=
-=7oh9
+iQEcBAEBCAAGBQJZBLhQAAoJEPsk95p+1Bw0bWYH/0jtGhKqahRGaxAnLLmA9rsK
+HUsvIDkAFEshdcUK2yB32JXu4vltG2sbIb/AaY3qifFawhfMPQXGPhJ1YfWlJrI6
+icqcPlvHRo88nSfpCfRA3EOjmrNSM4uXb4/FM9ongTgqBKPkSAoQjJfnhXQfOFKb
+ULyN0xRRMuqPxnAggzqn5mwcJ1qPFnuUDjcBssnHw21P/p72qrMK/pMp1LeGMpGZ
++kzr7rS2wko7isJuMouddCK3rypxeIry2XfLehRqguhfXLw9Xi+HNmBCY+76bYWi
+xXl2Nm/u3cPP/eQVrZz5H8eACwIv+LL1EV+9uLanWUa+IO5hHr3KElvKNKD6vN0=
+=vGQV
 -----END PGP SIGNATURE-----
-
 ```
+## Compile for Windows
 
-#### Usage on Linux (Debian-based distros)
+- see [WINCOMPILE.md](WINCOMPILE.md)
+
+## Compile on Linux 
+
+### GNU Compiler
 ```
-    sudo apt-get install libmicrohttpd-dev libssl-dev cmake build-essential
+    # Ubuntu / Debian
+    sudo apt-get install libmicrohttpd-dev libssl-dev cmake build-essential libhwloc-dev
     cmake .
-    make
+
+    # Fedora
+    sudo dnf install gcc gcc-c++ hwloc-devel libmicrohttpd-devel openssl-devel cmake
+    cmake .
+
+    # CentOS
+    sudo yum install centos-release-scl cmake3 hwloc-devel libmicrohttpd-devel openssl-devel
+    sudo yum install devtoolset-4-gcc*
+    sudo scl enable devtoolset-4 bash
+    cmake3 .
+
+    make install
 ```
 
-GCC version 5.1 or higher is required for full C++11 support. CMake release compile scripts, as well as CodeBlocks build environment for debug builds is included.
+- g++ version 5.1 or higher is required for full C++11 support. CMake release compile scripts, as well as CodeBlocks build environment for debug builds is included.
 
-To do a static build for a system without gcc 5.1+
+### To do a static build for a system without gcc 5.1+
 ```
-    cmake -DCMAKE_BUILD_TYPE=STATIC
-    make
+    cmake -DCMAKE_LINK_STATIC=ON .
+    make install
 ```
-Note - cmake caches variables, so if you want to do a dynamic build later you need to specify '-DCMAKE_BUILD_TYPE=RELEASE'
+Note - cmake caches variables, so if you want to do a dynamic build later you need to specify '-DCMAKE_LINK_STATIC=OFF'
+
+
+You can find a complete compile guide under [Advanced Compile Options](#advanced-compile-options).
 
 #### CPU mining performance 
 
@@ -63,95 +87,22 @@ Performance is nearly identical to the closed source paid miners. Here are some 
 * **Dual X5650** - 466 H/s (depends on NUMA)
 * **Dual E5640** - 365 H/s (same as above)
 
-#### Example reports
-```
-HASHRATE REPORT
-| ID | 2.5s |  60s |  15m | ID | 2.5s |  60s |  15m |
-|  0 | 31.7 | 30.7 | 30.5 |  1 | 30.6 | 30.6 | 30.6 |
-|  2 | 30.3 | 30.6 | 30.6 |  3 | 30.6 | 30.6 | 30.6 |
-|  4 | 35.3 | 35.5 | 35.6 |  5 | 35.7 | 35.7 | 35.7 |
-|  6 | 35.4 | 35.6 | 35.6 |  7 | 35.7 | 35.7 | 35.7 |
-|  8 | 31.7 | 30.7 | 30.5 |  9 | 30.6 | 30.6 | 30.6 |
-| 10 | 30.4 | 30.6 | 30.6 | 11 | 30.6 | 30.6 | 30.6 |
------------------------------------------------------
-Totals:   388.7 388.7 388.7 H/s
-Highest:  388.7 H/s
-```
-
-```
-RESULT REPORT
-Difficulty       : 8192
-Good results     : 5825 / 5826 (100.0 %)
-Avg result time  : 10.3 sec
-Pool-side hashes : 22683648
-
-Top 10 best results found:
-|  0 |         15407238 |  1 |         12699745 |
-|  2 |         12194202 |  3 |          6999845 |
-|  4 |          5533935 |  5 |          5315338 |
-|  6 |          4700351 |  7 |          4500227 |
-|  8 |          4023567 |  9 |          4021473 |
-
-Error details:
-| Count |                       Error text |           Last seen |
-|     1 | [NETWORK ERROR]                  | 2017-01-02 21:29:15 |
-```
-
-```
-CONNECTION REPORT
-Connected since : 2017-01-02 21:29:40
-Pool ping time  : 288 ms
-
-Network error log:
-| Date                |                                                       Error text |
-| 2017-01-02 21:29:15 | CALL error: Timeout while waiting for a reply                    |
-| 2017-01-02 21:29:30 | CONNECT error: GetAddrInfo: Name or service not known            |
-```
-
-#### Default dev donation
-By default the miner will donate 1% of the hashpower (1 minute in 100 minutes) to my pool. If you want to change that, edit **donate-level.h** before you build the binaries.
+## Default dev donation
+By default the miner will donate 2% of the hashpower (2 minute in 100 minutes) to my pool. If you want to change that, edit **donate-level.h** before you build the binaries.
 
 If you want to donate directly to support further development, here is my wallet
 
+fireice-uk:
 ```
 4581HhZkQHgZrZjKeCfCJxZff9E3xCgHGF25zABZz7oR71TnbbgiS7sK9jveE6Dx6uMs2LwszDuvQJgRZQotdpHt1fTdDhk
 ```
 
-#### PGP Key
+psychocrypt:
 ```
------BEGIN PGP PUBLIC KEY BLOCK-----
-Version: GnuPG v2
-
-mQENBFhYUmUBCAC6493W5y1MMs38ApRbI11jWUqNdFm686XLkZWGDfYImzL6pEYk
-RdWkyt9ziCyA6NUeWFQYniv/z10RxYKq8ulVVJaKb9qPGMU0ESfdxlFNJkU/pf28
-sEVBagGvGw8uFxjQONnBJ7y7iNRWMN7qSRS636wN5ryTHNsmqI4ClXPHkXkDCDUX
-QvhXZpG9RRM6jsE3jBGz/LJi3FyZLo/vB60OZBODJ2IA0wSR41RRiOq01OqDueva
-9jPoAokNglJfn/CniQ+lqUEXj1vjAZ1D5Mn9fISzA/UPen5Z7Sipaa9aAtsDBOfP
-K9iPKOsWa2uTafoyXgiwEVXCCeMMUjCGaoFBABEBAAG0ImZpcmVpY2VfdWsgPGZp
-cmVpY2UueG1yQGdtYWlsLmNvbT6JATcEEwEIACEFAlhYUmUCGwMFCwkIBwIGFQgJ
-CgsCBBYCAwECHgECF4AACgkQ+yT3mn7UHDTEcQf8CMhqaZ0IOBxeBnsq5HZr2X6z
-E5bODp5cPs6ha1tjH3CWpk1AFeykNtXH7kPW9hcDt/e4UQtcHs+lu6YU59X7xLJQ
-udOkpWdmooJMXRWS/zeeon4ivT9d69jNnwubh8EJOyw8xm/se6n48BcewfHekW/6
-mVrbhLbF1dnuUGXzRN1WxsUZx3uJd2UvrkJhAtHtX92/qIVhT0+3PXV0bmpHURlK
-YKhhm8dPLV9jPX8QVRHQXCOHSMqy/KoWEe6CnT0Isbkq3JtS3K4VBVeTX9gkySRc
-IFxrNJdXsI9BxKv4O8yajP8DohpoGLMDKZKSO0yq0BRMgMh0cw6Lk22uyulGALkB
-DQRYWFJlAQgAqikfViOmIccCZKVMZfNHjnigKtQqNrbJpYZCOImql4FqbZu9F7TD
-9HIXA43SPcwziWlyazSy8Pa9nCpc6PuPPO1wxAaNIc5nt+w/x2EGGTIFGjRoubmP
-3i5jZzOFYsvR2W3PgVa3/ujeYYJYo1oeVeuGmmJRejs0rp1mbvBSKw1Cq6C4cI0x
-GTY1yXFGLIgdfYNMmiLsTy1Qwq8YStbFKeUYAMMG3128SAIaT3Eet911f5Jx4tC8
-6kWUr6PX1rQ0LQJqyIsLq9U53XybUksRfJC9IEfgvgBxRBHSD8WfqEhHjhW1VsZG
-dcYgr7A1PIneWsCEY+5VUnqTlt2HPaKweQARAQABiQEfBBgBCAAJBQJYWFJlAhsM
-AAoJEPsk95p+1Bw0Pr8H/0vZ6U2zaih03jOHOvsrYxRfDXSmgudOp1VS45aHIREd
-2nrJ+drleeFVyb14UQqO/6iX9GuDX2yBEHdCg2aljeP98AaMU//RiEtebE6CUWsL
-HPVXHIkxwBCBe0YkJINHUQqLz/5f6qLsNUp1uTH2++zhdBWvg+gErTYbx8aFMFYH
-0GoOtqE5rtlAh5MTvDZm+UcDwKJCxhrLaN3R3dDoyrDNRTgHQQuX5/opJBiUnVNK
-d+vugnxzpMIJQP11yCZkz/KxV8zQ2QPMuZdAoh3znd/vGCJcp0rWphn4pqxA4vDp
-c4hC0Yg9Dha1OoE5CJCqVL+ic4vAyB1urAwBlsd/wH8=
-=B5I+
------END PGP PUBLIC KEY BLOCK-----
+43NoJVEXo21hGZ6tDG6Z3g4qimiGdJPE6GRxAmiWwm26gwr62Lqo7zRiCJFSBmbkwTGNuuES9ES5TgaVHceuYc4Y75txCTU
 ```
 
-### Common Issues
+## Common Issues
 
 **SeLockMemoryPrivilege failed**
 
@@ -201,4 +152,77 @@ You can also do it Windows-style and simply run-as-root, but this is NOT recomme
 This typically means you are trying to run it on a CPU that does not have [AES](https://en.wikipedia.org/wiki/AES_instruction_set).  This only happens on older version of miner, new version gives better error message (but still wont' work since your CPU doesn't support the required instructions).
 
 
+## Advanced Compile Options
 
+The build system is CMake, if you are not familiar with CMake you can learn more [here](https://cmake.org/runningcmake/).
+
+### Short Description
+
+There are two easy ways to set variables for `cmake` to configure *xmr-stak-cpu*
+- use the ncurses GUI
+  - `ccmake .`
+  - edit your options
+  - end the GUI by pressing the key `c`(create) and than `g`(generate)
+- set Options on the command line
+  - enable a option: `cmake . -DNAME_OF_THE_OPTION=ON`
+  - disable a option `cmake . -DNAME_OF_THE_OPTION=OFF`
+  - set a value `cmake . -DNAME_OF_THE_OPTION=value`
+
+After the configuration you need to call
+`make install` for slow sequential build
+or
+`make -j install` for faster parallel build
+and install.
+
+### xmr-stak-cpu Compile Options
+- `CMAKE_INSTALL_PREFIX` install miner to the home folder
+  - `cmake . -DCMAKE_INSTALL_PREFIX=$HOME/xmr-stak-cpu`
+  - you can find the binary and the `config.txt` file after `make install` in `$HOME/xmr-stak-cpu/bin`
+- `CMAKE_LINK_STATIC` link libgcc and libstdc++ libraries static (default OFF)
+  - disable with `cmake . -DCMAKE_LINK_STATIC=ON`
+-`CMAKE_BUILD_TYPE` set the build type
+  - valid options: `Release` or `Debug`
+  - you should always keep `Release` for your productive miners
+- `MICROHTTPD_ENABLE` allow to disable/enable the dependency *microhttpd*
+  - by default enabled
+  - there is no *http* interface available if option is disabled: `cmake . -DMICROHTTPD_ENABLE=OFF`
+- `OpenSSL_ENABLE` allow to disable/enable the dependency *OpenSSL*
+  - by default enabled
+  - it is not possible to connect to a *https* secured pool if option is disabled: `cmake . -DOpenSSL_ENABLE=OFF`
+- `HWLOC_ENABLE` allow to disable/enable the dependency *hwloc*
+  - by default enabled
+  - the config suggestion is not optimal if option is disabled: `cmake . -DHWLOC_ENABLE=OFF`
+
+## PGP Key
+```
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+Version: GnuPG v2
+
+mQENBFhYUmUBCAC6493W5y1MMs38ApRbI11jWUqNdFm686XLkZWGDfYImzL6pEYk
+RdWkyt9ziCyA6NUeWFQYniv/z10RxYKq8ulVVJaKb9qPGMU0ESfdxlFNJkU/pf28
+sEVBagGvGw8uFxjQONnBJ7y7iNRWMN7qSRS636wN5ryTHNsmqI4ClXPHkXkDCDUX
+QvhXZpG9RRM6jsE3jBGz/LJi3FyZLo/vB60OZBODJ2IA0wSR41RRiOq01OqDueva
+9jPoAokNglJfn/CniQ+lqUEXj1vjAZ1D5Mn9fISzA/UPen5Z7Sipaa9aAtsDBOfP
+K9iPKOsWa2uTafoyXgiwEVXCCeMMUjCGaoFBABEBAAG0ImZpcmVpY2VfdWsgPGZp
+cmVpY2UueG1yQGdtYWlsLmNvbT6JATcEEwEIACEFAlhYUmUCGwMFCwkIBwIGFQgJ
+CgsCBBYCAwECHgECF4AACgkQ+yT3mn7UHDTEcQf8CMhqaZ0IOBxeBnsq5HZr2X6z
+E5bODp5cPs6ha1tjH3CWpk1AFeykNtXH7kPW9hcDt/e4UQtcHs+lu6YU59X7xLJQ
+udOkpWdmooJMXRWS/zeeon4ivT9d69jNnwubh8EJOyw8xm/se6n48BcewfHekW/6
+mVrbhLbF1dnuUGXzRN1WxsUZx3uJd2UvrkJhAtHtX92/qIVhT0+3PXV0bmpHURlK
+YKhhm8dPLV9jPX8QVRHQXCOHSMqy/KoWEe6CnT0Isbkq3JtS3K4VBVeTX9gkySRc
+IFxrNJdXsI9BxKv4O8yajP8DohpoGLMDKZKSO0yq0BRMgMh0cw6Lk22uyulGALkB
+DQRYWFJlAQgAqikfViOmIccCZKVMZfNHjnigKtQqNrbJpYZCOImql4FqbZu9F7TD
+9HIXA43SPcwziWlyazSy8Pa9nCpc6PuPPO1wxAaNIc5nt+w/x2EGGTIFGjRoubmP
+3i5jZzOFYsvR2W3PgVa3/ujeYYJYo1oeVeuGmmJRejs0rp1mbvBSKw1Cq6C4cI0x
+GTY1yXFGLIgdfYNMmiLsTy1Qwq8YStbFKeUYAMMG3128SAIaT3Eet911f5Jx4tC8
+6kWUr6PX1rQ0LQJqyIsLq9U53XybUksRfJC9IEfgvgBxRBHSD8WfqEhHjhW1VsZG
+dcYgr7A1PIneWsCEY+5VUnqTlt2HPaKweQARAQABiQEfBBgBCAAJBQJYWFJlAhsM
+AAoJEPsk95p+1Bw0Pr8H/0vZ6U2zaih03jOHOvsrYxRfDXSmgudOp1VS45aHIREd
+2nrJ+drleeFVyb14UQqO/6iX9GuDX2yBEHdCg2aljeP98AaMU//RiEtebE6CUWsL
+HPVXHIkxwBCBe0YkJINHUQqLz/5f6qLsNUp1uTH2++zhdBWvg+gErTYbx8aFMFYH
+0GoOtqE5rtlAh5MTvDZm+UcDwKJCxhrLaN3R3dDoyrDNRTgHQQuX5/opJBiUnVNK
+d+vugnxzpMIJQP11yCZkz/KxV8zQ2QPMuZdAoh3znd/vGCJcp0rWphn4pqxA4vDp
+c4hC0Yg9Dha1OoE5CJCqVL+ic4vAyB1urAwBlsd/wH8=
+=B5I+
+-----END PGP PUBLIC KEY BLOCK-----
+```

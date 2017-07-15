@@ -24,7 +24,9 @@
 #include <assert.h>
 #include <cmath>
 #include <chrono>
+#include <cstring>
 #include <thread>
+#include <bitset>
 #include "console.h"
 
 #ifdef _WIN32
@@ -32,24 +34,46 @@
 
 void thd_setaffinity(std::thread::native_handle_type h, uint64_t cpu_id)
 {
-	SetThreadAffinityMask(h, 1 << cpu_id);
+	SetThreadAffinityMask(h, 1ULL << cpu_id);
 }
 #else
 #include <pthread.h>
 
+#if defined(__APPLE__)
+#include <mach/thread_policy.h>
+#include <mach/thread_act.h>
+#define SYSCTL_CORE_COUNT   "machdep.cpu.core_count"
+#elif defined(__FreeBSD__)
+#include <pthread_np.h>
+#endif
+
+
 void thd_setaffinity(std::thread::native_handle_type h, uint64_t cpu_id)
 {
+#if defined(__APPLE__)
+	thread_port_t mach_thread;
+	thread_affinity_policy_data_t policy = { static_cast<integer_t>(cpu_id) };
+	mach_thread = pthread_mach_thread_np(h);
+	thread_policy_set(mach_thread, THREAD_AFFINITY_POLICY, (thread_policy_t)&policy, 1);
+#elif defined(__FreeBSD__)
+	cpuset_t mn;
+	CPU_ZERO(&mn);
+	CPU_SET(cpu_id, &mn);
+	pthread_setaffinity_np(h, sizeof(cpuset_t), &mn);
+#else
 	cpu_set_t mn;
 	CPU_ZERO(&mn);
 	CPU_SET(cpu_id, &mn);
 	pthread_setaffinity_np(h, sizeof(cpu_set_t), &mn);
+#endif
 }
 #endif // _WIN32
 
 #include "executor.h"
 #include "minethd.h"
 #include "jconf.h"
-#include "crypto/cryptonight.h"
+#include "crypto/cryptonight_aesni.h"
+#include "hwlocMemory.hpp"
 
 telemetry::telemetry(size_t iThd)
 {
@@ -126,7 +150,7 @@ void telemetry::push_perf_value(size_t iThd, uint64_t iHashCount, uint64_t iTime
 	iBucketTop[iThd] = (iTop + 1) & iBucketMask;
 }
 
-minethd::minethd(miner_work& pWork, size_t iNo, bool double_work, bool no_prefetch)
+minethd::minethd(miner_work& pWork, size_t iNo, bool double_work, bool no_prefetch, int affinity)
 {
 	oWork = pWork;
 	bQuit = 0;
@@ -135,6 +159,7 @@ minethd::minethd(miner_work& pWork, size_t iNo, bool double_work, bool no_prefet
 	iHashCount = 0;
 	iTimestamp = 0;
 	bNoPrefetch = no_prefetch;
+	this->affinity = affinity;
 
 	if(double_work)
 		oWorkThd = std::thread(&minethd::double_work_main, this);
@@ -231,42 +256,29 @@ bool minethd::self_test()
 		return false;
 	}
 
-	bool bHasLp = ctx0->ctx_info[0] == 1 && ctx1->ctx_info[0] == 1;
-	size_t n = jconf::inst()->GetThreadCount();
-	jconf::thd_cfg cfg;
-	for (size_t i = 0; i < n; i++)
-	{
-		jconf::inst()->GetThreadConfig(i, cfg);
-
-		if(!bHasLp && cfg.bNoPrefetch)
-		{
-			printer::inst()->print_msg(L0, "Wrong config. You are running in slow memory mode with no_prefetch.");
-			cryptonight_free_ctx(ctx0);
-			cryptonight_free_ctx(ctx1);
-			return false;
-		}
-	}
-
 	unsigned char out[64];
 	bool bResult;
 
-	if(jconf::inst()->HaveHardwareAes())
-	{
-		cryptonight_hash_ctx("This is a test", 14, out, ctx0);
-		bResult = memcmp(out, "\xa0\x84\xf0\x1d\x14\x37\xa0\x9c\x69\x85\x40\x1b\x60\xd4\x35\x54\xae\x10\x58\x02\xc5\xf5\xd8\xa9\xb3\x25\x36\x49\xc0\xbe\x66\x05", 32) == 0;
+	cn_hash_fun hashf;
+	cn_hash_fun_dbl hashdf;
 
-		cryptonight_hash_ctx_np("This is a test", 14, out, ctx0);
-		bResult &= memcmp(out, "\xa0\x84\xf0\x1d\x14\x37\xa0\x9c\x69\x85\x40\x1b\x60\xd4\x35\x54\xae\x10\x58\x02\xc5\xf5\xd8\xa9\xb3\x25\x36\x49\xc0\xbe\x66\x05", 32) == 0;
+	hashf = func_selector(jconf::inst()->HaveHardwareAes(), false);
+	hashf("This is a test", 14, out, ctx0);
+	bResult = memcmp(out, "\xa0\x84\xf0\x1d\x14\x37\xa0\x9c\x69\x85\x40\x1b\x60\xd4\x35\x54\xae\x10\x58\x02\xc5\xf5\xd8\xa9\xb3\x25\x36\x49\xc0\xbe\x66\x05", 32) == 0;
 
-		cryptonight_double_hash_ctx("The quick brown fox jumps over the lazy dogThe quick brown fox jumps over the lazy log", 43, out, ctx0, ctx1);
-		bResult &= memcmp(out, "\x3e\xbb\x7f\x9f\x7d\x27\x3d\x7c\x31\x8d\x86\x94\x77\x55\x0c\xc8\x00\xcf\xb1\x1b\x0c\xad\xb7\xff\xbd\xf6\xf8\x9f\x3a\x47\x1c\x59"
-		                       "\xb4\x77\xd5\x02\xe4\xd8\x48\x7f\x42\xdf\xe3\x8e\xed\x73\x81\x7a\xda\x91\xb7\xe2\x63\xd2\x91\x71\xb6\x5c\x44\x3a\x01\x2a\x41\x22", 64) == 0;
-	}
-	else
-	{
-		cryptonight_hash_ctx_soft("This is a test", 14, out, ctx0);
-		bResult = memcmp(out, "\xa0\x84\xf0\x1d\x14\x37\xa0\x9c\x69\x85\x40\x1b\x60\xd4\x35\x54\xae\x10\x58\x02\xc5\xf5\xd8\xa9\xb3\x25\x36\x49\xc0\xbe\x66\x05", 32) == 0;
-	}
+	hashf = func_selector(jconf::inst()->HaveHardwareAes(), true);
+	hashf("This is a test", 14, out, ctx0);
+	bResult &= memcmp(out, "\xa0\x84\xf0\x1d\x14\x37\xa0\x9c\x69\x85\x40\x1b\x60\xd4\x35\x54\xae\x10\x58\x02\xc5\xf5\xd8\xa9\xb3\x25\x36\x49\xc0\xbe\x66\x05", 32) == 0;
+
+	hashdf = func_dbl_selector(jconf::inst()->HaveHardwareAes(), false);
+	hashdf("The quick brown fox jumps over the lazy dogThe quick brown fox jumps over the lazy log", 43, out, ctx0, ctx1);
+	bResult &= memcmp(out, "\x3e\xbb\x7f\x9f\x7d\x27\x3d\x7c\x31\x8d\x86\x94\x77\x55\x0c\xc8\x00\xcf\xb1\x1b\x0c\xad\xb7\xff\xbd\xf6\xf8\x9f\x3a\x47\x1c\x59"
+		                   "\xb4\x77\xd5\x02\xe4\xd8\x48\x7f\x42\xdf\xe3\x8e\xed\x73\x81\x7a\xda\x91\xb7\xe2\x63\xd2\x91\x71\xb6\x5c\x44\x3a\x01\x2a\x41\x22", 64) == 0;
+
+	hashdf = func_dbl_selector(jconf::inst()->HaveHardwareAes(), true);
+	hashdf("The quick brown fox jumps over the lazy dogThe quick brown fox jumps over the lazy log", 43, out, ctx0, ctx1);
+	bResult &= memcmp(out, "\x3e\xbb\x7f\x9f\x7d\x27\x3d\x7c\x31\x8d\x86\x94\x77\x55\x0c\xc8\x00\xcf\xb1\x1b\x0c\xad\xb7\xff\xbd\xf6\xf8\x9f\x3a\x47\x1c\x59"
+		                   "\xb4\x77\xd5\x02\xe4\xd8\x48\x7f\x42\xdf\xe3\x8e\xed\x73\x81\x7a\xda\x91\xb7\xe2\x63\xd2\x91\x71\xb6\x5c\x44\x3a\x01\x2a\x41\x22", 64) == 0;
 
 	cryptonight_free_ctx(ctx0);
 	cryptonight_free_ctx(ctx1);
@@ -294,10 +306,15 @@ std::vector<minethd*>* minethd::thread_starter(miner_work& pWork)
 	{
 		jconf::inst()->GetThreadConfig(i, cfg);
 
-		minethd* thd = new minethd(pWork, i, cfg.bDoubleMode, cfg.bNoPrefetch);
+		minethd* thd = new minethd(pWork, i, cfg.bDoubleMode, cfg.bNoPrefetch, cfg.iCpuAff);
 
 		if(cfg.iCpuAff >= 0)
+		{
+#if defined(__APPLE__)
+			printer::inst()->print_msg(L1, "WARNING on MacOS thread affinity is only advisory.");
+#endif
 			thd_setaffinity(thd->oWorkThd.native_handle(), cfg.iCpuAff);
+		}
 
 		pvThreads->push_back(thd);
 
@@ -332,21 +349,46 @@ void minethd::consume_work()
 	iConsumeCnt++;
 }
 
+minethd::cn_hash_fun minethd::func_selector(bool bHaveAes, bool bNoPrefetch)
+{
+	// We have two independent flag bits in the functions
+	// therefore we will build a binary digit and select the
+	// function as a two digit binary
+	// Digit order SOFT_AES, NO_PREFETCH
+
+	static const cn_hash_fun func_table[4] = {
+		cryptonight_hash<0x80000, MEMORY, false, false>,
+		cryptonight_hash<0x80000, MEMORY, false, true>,
+		cryptonight_hash<0x80000, MEMORY, true, false>,
+		cryptonight_hash<0x80000, MEMORY, true, true>
+	};
+
+	std::bitset<2> digit;
+	digit.set(0, !bNoPrefetch);
+	digit.set(1, !bHaveAes);
+
+	return func_table[digit.to_ulong()];
+}
+
 void minethd::work_main()
 {
+	// pin memory to NUMA node
+	bindMemoryToNUMANode(affinity);
+
+	cn_hash_fun hash_fun;
 	cryptonight_ctx* ctx;
 	uint64_t iCount = 0;
 	uint64_t* piHashVal;
 	uint32_t* piNonce;
 	job_result result;
 
+	hash_fun = func_selector(jconf::inst()->HaveHardwareAes(), bNoPrefetch);
 	ctx = minethd_alloc_ctx();
 
 	piHashVal = (uint64_t*)(result.bResult + 24);
 	piNonce = (uint32_t*)(oWork.bWorkBlob + 39);
 	iConsumeCnt++;
 
-	bool bHaveAes = jconf::inst()->HaveHardwareAes();
 	while (bQuit == 0)
 	{
 		if (oWork.bStall)
@@ -383,15 +425,7 @@ void minethd::work_main()
 
 			*piNonce = ++result.iNonce;
 
-			if(bHaveAes)
-			{
-				if(bNoPrefetch)
-					cryptonight_hash_ctx_np(oWork.bWorkBlob, oWork.iWorkSize, result.bResult, ctx);
-				else
-					cryptonight_hash_ctx(oWork.bWorkBlob, oWork.iWorkSize, result.bResult, ctx);
-			}
-			else
-				cryptonight_hash_ctx_soft(oWork.bWorkBlob, oWork.iWorkSize, result.bResult, ctx);
+			hash_fun(oWork.bWorkBlob, oWork.iWorkSize, result.bResult, ctx);
 
 			if (*piHashVal < oWork.iTarget)
 				executor::inst()->push_event(ex_event(result, oWork.iPoolId));
@@ -405,8 +439,33 @@ void minethd::work_main()
 	cryptonight_free_ctx(ctx);
 }
 
+minethd::cn_hash_fun_dbl minethd::func_dbl_selector(bool bHaveAes, bool bNoPrefetch)
+{
+	// We have two independent flag bits in the functions
+	// therefore we will build a binary digit and select the
+	// function as a two digit binary
+	// Digit order SOFT_AES, NO_PREFETCH
+
+	static const cn_hash_fun_dbl func_table[4] = {
+		cryptonight_double_hash<0x80000, MEMORY, false, false>,
+		cryptonight_double_hash<0x80000, MEMORY, false, true>,
+		cryptonight_double_hash<0x80000, MEMORY, true, false>,
+		cryptonight_double_hash<0x80000, MEMORY, true, true>
+	};
+
+	std::bitset<2> digit;
+	digit.set(0, !bNoPrefetch);
+	digit.set(1, !bHaveAes);
+
+	return func_table[digit.to_ulong()];
+}
+
 void minethd::double_work_main()
 {
+	// pin memory to NUMA node
+	bindMemoryToNUMANode(affinity);
+
+	cn_hash_fun_dbl hash_fun;
 	cryptonight_ctx* ctx0;
 	cryptonight_ctx* ctx1;
 	uint64_t iCount = 0;
@@ -417,6 +476,7 @@ void minethd::double_work_main()
 	uint32_t iNonce;
 	job_result res;
 
+	hash_fun = func_dbl_selector(jconf::inst()->HaveHardwareAes(), bNoPrefetch);
 	ctx0 = minethd_alloc_ctx();
 	ctx1 = minethd_alloc_ctx();
 
@@ -466,7 +526,8 @@ void minethd::double_work_main()
 
 			*piNonce0 = ++iNonce;
 			*piNonce1 = ++iNonce;
-			cryptonight_double_hash_ctx(bDoubleWorkBlob, oWork.iWorkSize, bDoubleHashOut, ctx0, ctx1);
+
+			hash_fun(bDoubleWorkBlob, oWork.iWorkSize, bDoubleHashOut, ctx0, ctx1);
 
 			if (*piHashVal0 < oWork.iTarget)
 				executor::inst()->push_event(ex_event(job_result(oWork.sJobID, iNonce-1, bDoubleHashOut), oWork.iPoolId));

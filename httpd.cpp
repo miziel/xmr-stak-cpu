@@ -21,6 +21,8 @@
   *
   */
 
+#ifndef CONF_NO_HTTPD
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -80,33 +82,45 @@ int httpd::req_handler(void * cls,
 
 		rsp = MHD_create_response_from_buffer(sHtmlCssSize, (void*)sHtmlCssFile, MHD_RESPMEM_PERSISTENT);
 		MHD_add_response_header(rsp, "ETag", sHtmlCssEtag);
+		MHD_add_response_header(rsp, "Content-Type", "text/css; charset=utf-8");
 	}
 	else if(strcasecmp(url, "/h") == 0 || strcasecmp(url, "/hashrate") == 0)
 	{
 		executor::inst()->get_http_report(EV_HTML_HASHRATE, str);
 
 		rsp = MHD_create_response_from_buffer(str.size(), (void*)str.c_str(), MHD_RESPMEM_MUST_COPY);
+		MHD_add_response_header(rsp, "Content-Type", "text/html; charset=utf-8");
 	}
 	else if(strcasecmp(url, "/c") == 0 || strcasecmp(url, "/connection") == 0)
 	{
 		executor::inst()->get_http_report(EV_HTML_CONNSTAT, str);
 
 		rsp = MHD_create_response_from_buffer(str.size(), (void*)str.c_str(), MHD_RESPMEM_MUST_COPY);
+		MHD_add_response_header(rsp, "Content-Type", "text/html; charset=utf-8");
 	}
 	else if(strcasecmp(url, "/r") == 0 || strcasecmp(url, "/results") == 0)
 	{
 		executor::inst()->get_http_report(EV_HTML_RESULTS, str);
 
 		rsp = MHD_create_response_from_buffer(str.size(), (void*)str.c_str(), MHD_RESPMEM_MUST_COPY);
+		MHD_add_response_header(rsp, "Content-Type", "text/html; charset=utf-8");
 	}
 	else
 	{
-		char buffer[1024];
-		snprintf(buffer, sizeof(buffer), "<html><head><title>Error</title></head><body>"
-			"<pre>Unkown url %s - please use /h, /r or /c as url</pre></body></html>", url);
+		//Do a 302 redirect to /h
+		char loc_path[256];
+		const char* host_val = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Host");
 
-		rsp = MHD_create_response_from_buffer(strlen(buffer),
-		(void*)buffer, MHD_RESPMEM_MUST_COPY);
+		if(host_val != nullptr)
+			snprintf(loc_path, sizeof(loc_path), "http://%s/h", host_val);
+		else
+			snprintf(loc_path, sizeof(loc_path), "/h");
+
+		rsp = MHD_create_response_from_buffer(0, nullptr, MHD_RESPMEM_PERSISTENT);
+		int ret = MHD_queue_response(connection, MHD_HTTP_TEMPORARY_REDIRECT, rsp);
+		MHD_add_response_header(rsp, "Location", loc_path);
+		MHD_destroy_response(rsp);
+		return ret;
 	}
 
 	int ret = MHD_queue_response(connection, MHD_HTTP_OK, rsp);
@@ -129,4 +143,6 @@ bool httpd::start_daemon()
 
 	return true;
 }
+
+#endif
 

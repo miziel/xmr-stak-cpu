@@ -27,12 +27,14 @@
 #include "console.h"
 #include "executor.h"
 
+#ifndef CONF_NO_TLS
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <openssl/opensslconf.h>
 
 #ifndef OPENSSL_THREADS
 #error OpenSSL was compiled without thread support
+#endif
 #endif
 
 plain_socket::plain_socket(jpsock* err_callback) : pCallback(err_callback)
@@ -54,7 +56,10 @@ bool plain_socket::set_hostname(const char* sAddr)
 	sAddrMb[ln] = '\0';
 
 	if ((sTmp = strstr(sAddrMb, "//")) != nullptr)
+	{
+		sTmp += 2;
 		memmove(sAddrMb, sTmp, strlen(sTmp) + 1);
+	}
 
 	if ((sPort = strchr(sAddrMb, ':')) == nullptr)
 		return pCallback->set_socket_error("CONNECT error: Pool port number not specified, please use format <hostname>:<port>.");
@@ -166,6 +171,7 @@ void plain_socket::close(bool free)
 	}
 }
 
+#ifndef CONF_NO_TLS
 tls_socket::tls_socket(jpsock* err_callback) : pCallback(err_callback)
 {
 }
@@ -355,4 +361,5 @@ void tls_socket::close(bool free)
 		bio = nullptr;
 	}
 }
+#endif
 

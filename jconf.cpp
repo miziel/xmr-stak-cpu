@@ -45,10 +45,10 @@ using namespace rapidjson;
 /*
  * This enum needs to match index in oConfigValues, otherwise we will get a runtime error
  */
-enum configEnum { iCpuThreadNum, aCpuThreadsConf, sUseSlowMem, bNiceHashMode,
+enum configEnum { aCpuThreadsConf, sUseSlowMem, bNiceHashMode, bAesOverride,
 	bTlsMode, bTlsSecureAlgo, sTlsFingerprint, sPoolAddr, sWalletAddr, sPoolPwd,
 	iCallTimeout, iNetRetry, iGiveUpLimit, iVerboseLevel, iAutohashTime,
-	sOutputFile, iHttpdPort, bPreferIpv4 };
+	bDaemonMode, sOutputFile, iHttpdPort, bPreferIpv4 };
 
 struct configVal {
 	configEnum iName;
@@ -56,12 +56,13 @@ struct configVal {
 	Type iType;
 };
 
-//Same order as in configEnum, as per comment above
+// Same order as in configEnum, as per comment above
+// kNullType means any type
 configVal oConfigValues[] = {
-	{ iCpuThreadNum, "cpu_thread_num", kNumberType },
-	{ aCpuThreadsConf, "cpu_threads_conf", kArrayType },
+	{ aCpuThreadsConf, "cpu_threads_conf", kNullType },
 	{ sUseSlowMem, "use_slow_memory", kStringType },
 	{ bNiceHashMode, "nicehash_nonce", kTrueType },
+	{ bAesOverride, "aes_override", kNullType },
 	{ bTlsMode, "use_tls", kTrueType },
 	{ bTlsSecureAlgo, "tls_secure_algo", kTrueType },
 	{ sTlsFingerprint, "tls_fingerprint", kStringType },
@@ -73,6 +74,7 @@ configVal oConfigValues[] = {
 	{ iGiveUpLimit, "giveup_limit", kNumberType },
 	{ iVerboseLevel, "verbose_level", kNumberType },
 	{ iAutohashTime, "h_print_time", kNumberType },
+	{ bDaemonMode, "daemon_mode", kTrueType },
 	{ sOutputFile, "output_file", kStringType },
 	{ iHttpdPort, "httpd_port", kNumberType },
 	{ bPreferIpv4, "prefer_ipv4", kTrueType }
@@ -83,6 +85,8 @@ constexpr size_t iConfigCnt = (sizeof(oConfigValues)/sizeof(oConfigValues[0]));
 inline bool checkType(Type have, Type want)
 {
 	if(want == have)
+		return true;
+	else if(want == kNullType)
 		return true;
 	else if(want == kTrueType && have == kFalseType)
 		return true;
@@ -111,6 +115,9 @@ jconf::jconf()
 
 bool jconf::GetThreadConfig(size_t id, thd_cfg &cfg)
 {
+	if(!prv->configValues[aCpuThreadsConf]->IsArray())
+		return false;
+
 	if(id >= prv->configValues[aCpuThreadsConf]->Size())
 		return false;
 
@@ -138,12 +145,6 @@ bool jconf::GetThreadConfig(size_t id, thd_cfg &cfg)
 
 	cfg.bDoubleMode = mode->GetBool();
 	cfg.bNoPrefetch = no_prefetch->GetBool();
-
-	if(!bHaveAes && (cfg.bDoubleMode || cfg.bNoPrefetch))
-	{
-		printer::inst()->print_msg(L0, "Invalid thread confg - low_power_mode and no_prefetch are unsupported on CPUs without AES-NI.");
-		return false;
-	}
 
 	if(aff->IsNumber())
 		cfg.iCpuAff = aff->GetInt64();
@@ -206,7 +207,15 @@ bool jconf::PreferIpv4()
 
 size_t jconf::GetThreadCount()
 {
-	return prv->configValues[aCpuThreadsConf]->Size();
+	if(prv->configValues[aCpuThreadsConf]->IsArray())
+		return prv->configValues[aCpuThreadsConf]->Size();
+	else
+		return 0;
+}
+
+bool jconf::NeedsAutoconf()
+{
+	return !prv->configValues[aCpuThreadsConf]->IsArray();
 }
 
 uint64_t jconf::GetCallTimeout()
@@ -244,29 +253,40 @@ bool jconf::NiceHashMode()
 	return prv->configValues[bNiceHashMode]->GetBool();
 }
 
+bool jconf::DaemonMode()
+{
+	return prv->configValues[bDaemonMode]->GetBool();
+}
+
 const char* jconf::GetOutputFile()
 {
 	return prv->configValues[sOutputFile]->GetString();
+}
+
+void jconf::cpuid(uint32_t eax, int32_t ecx, int32_t val[4])
+{
+	memset(val, 0, sizeof(int32_t)*4);
+
+#ifdef _WIN32
+	__cpuidex(val, eax, ecx);
+#else
+	__cpuid_count(eax, ecx, val[0], val[1], val[2], val[3]);
+#endif
 }
 
 bool jconf::check_cpu_features()
 {
 	constexpr int AESNI_BIT = 1 << 25;
 	constexpr int SSE2_BIT = 1 << 26;
+	int32_t cpu_info[4];
+	bool bHaveSse2;
 
-	int cpu_info[4];
-#ifdef _WIN32
-	__cpuid(cpu_info, 1);
-#else
-	__cpuid(1, cpu_info[0], cpu_info[1], cpu_info[2], cpu_info[3]);
-#endif
+	cpuid(1, 0, cpu_info);
 
 	bHaveAes = (cpu_info[2] & AESNI_BIT) != 0;
+	bHaveSse2 = (cpu_info[3] & SSE2_BIT) != 0;
 
-	if(!bHaveAes)
-		printer::inst()->print_msg(L0, "Your CPU doesn't support hardware AES. Don't expect high hashrates.");
-
-	return (cpu_info[3] & SSE2_BIT) != 0;
+	return bHaveSse2;
 }
 
 bool jconf::parse_config(const char* sFilename)
@@ -301,6 +321,7 @@ bool jconf::parse_config(const char* sFilename)
 
 	if(flen <= 16)
 	{
+		fclose(pFile);
 		printer::inst()->print_msg(L0, "File is empty or too short - %s.", sFilename);
 		return false;
 	}
@@ -368,29 +389,20 @@ bool jconf::parse_config(const char* sFilename)
 		}
 	}
 
-	size_t n_thd = prv->configValues[aCpuThreadsConf]->Size();
-	if(prv->configValues[iCpuThreadNum]->GetUint64() != n_thd)
-	{
-		printer::inst()->print_msg(L0,
-			"Invalid config file. Your CPU config array has %llu members, while you want to use %llu threads.",
-			int_port(n_thd), int_port(prv->configValues[iCpuThreadNum]->GetUint64()));
-		return false;
-	}
-
-	if(NiceHashMode() && n_thd >= 32)
-	{
-		printer::inst()->print_msg(L0, "You need to use less than 32 threads in NiceHash mode.");
-		return false;
-	}
-
 	thd_cfg c;
-	for(size_t i=0; i < n_thd; i++)
+	for(size_t i=0; i < GetThreadCount(); i++)
 	{
 		if(!GetThreadConfig(i, c))
 		{
 			printer::inst()->print_msg(L0, "Thread %llu has invalid config.", int_port(i));
 			return false;
 		}
+	}
+
+	if(NiceHashMode() && GetThreadCount() >= 32)
+	{
+		printer::inst()->print_msg(L0, "You need to use less than 32 threads in NiceHash mode.");
+		return false;
 	}
 
 	if(GetSlowMemSetting() == unknown_value)
@@ -423,6 +435,15 @@ bool jconf::parse_config(const char* sFilename)
 		return false;
 	}
 
+#ifdef CONF_NO_TLS
+	if(prv->configValues[bTlsMode]->GetBool())
+	{
+		printer::inst()->print_msg(L0,
+			"Invalid config file. TLS enabled while the application has been compiled without TLS support.");
+		return false;
+	}
+#endif // CONF_NO_TLS
+
 #ifdef _WIN32
 	if(GetSlowMemSetting() == no_mlck)
 	{
@@ -432,5 +453,15 @@ bool jconf::parse_config(const char* sFilename)
 #endif // _WIN32
 
 	printer::inst()->set_verbose_level(prv->configValues[iVerboseLevel]->GetUint64());
+
+	if(NeedsAutoconf())
+		return true;
+
+	if(prv->configValues[bAesOverride]->IsBool())
+		bHaveAes = prv->configValues[bAesOverride]->GetBool();
+
+	if(!bHaveAes)
+		printer::inst()->print_msg(L0, "Your CPU doesn't support hardware AES. Don't expect high hashrates.");
+
 	return true;
 }

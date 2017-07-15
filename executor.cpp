@@ -43,7 +43,6 @@ executor* executor::oInst = NULL;
 
 executor::executor()
 {
-	my_thd = nullptr;
 }
 
 void executor::push_timed_event(ex_event&& ev, size_t sec)
@@ -232,7 +231,7 @@ void executor::on_pool_have_job(size_t pool_id, pool_job& oPoolJob)
 
 	minethd::miner_work oWork(oPoolJob.sJobID, oPoolJob.bWorkBlob,
 		oPoolJob.iWorkLen, oPoolJob.iResumeCnt, oPoolJob.iTarget,
-		(pool_id != dev_pool_id) ? jconf::inst()->NiceHashMode() : false,
+		pool_id != dev_pool_id && jconf::inst()->NiceHashMode(),
 		pool_id);
 
 	minethd::switch_work(oWork);
@@ -380,7 +379,7 @@ void executor::ex_main()
 	//This will connect us to the pool for the first time
 	push_event(ex_event(EV_RECONNECT, usr_pool_id));
 
-	// Place the default success result at postion 0, it needs to
+	// Place the default success result at position 0, it needs to
 	// be here even if our first result is a failure
 	vMineResults.emplace_back();
 
